@@ -50,18 +50,31 @@ export default function RecordingView() {
       setIsRecording(true);
       setTranscriptionText('');
       
-      // Start speech recognition
+      // Start speech recognition with real-time updates
       if (speechService.isAvailable) {
         try {
-          const transcript = await speechService.startLiveRecognition();
-          setTranscriptionText(transcript);
+          // Start recognition with callback for real-time transcription
+          const recognitionPromise = speechService.startLiveRecognition((interimText) => {
+            // Update transcription in real-time as user speaks
+            setTranscriptionText(interimText);
+          });
+          
+          // Wait for final result
+          const finalTranscript = await recognitionPromise;
+          // Update with final transcript (in case callback missed it)
+          if (finalTranscript) {
+            setTranscriptionText(finalTranscript);
+          }
         } catch (error: any) {
           loggerService.error('Speech recognition failed during recording', 'RecordingView', error as Error, {
             hasPermission,
             isRecording: true
           });
-          setAlertMessage(`Speech recognition error: ${error.message}`);
-          setShowAlert(true);
+          // Don't show error for "aborted" - it's handled gracefully
+          if (!error.message.includes('aborted')) {
+            setAlertMessage(`Speech recognition error: ${error.message}`);
+            setShowAlert(true);
+          }
         }
       }
     } catch (error: any) {
@@ -80,21 +93,12 @@ export default function RecordingView() {
       setIsRecording(false);
       speechService.stopRecognition();
       
-      // If we don't have transcription from live recognition, try to get it
-      if (!transcriptionText && speechService.isAvailable) {
-        setIsProcessing(true);
-        try {
-          const transcript = await speechService.startLiveRecognition();
-          setTranscriptionText(transcript);
-        } catch (error: any) {
-          loggerService.error('Transcription error after stopping recording', 'RecordingView', error as Error, {
-            hadTranscription: !!transcriptionText
-          });
-          setAlertMessage('Transcription failed. You can edit the text manually.');
-          setShowAlert(true);
-        } finally {
-          setIsProcessing(false);
-        }
+      // Transcription should already be populated from real-time updates
+      // If not, it means recognition didn't work - user can edit manually
+      if (!transcriptionText.trim()) {
+        loggerService.info('No transcription available after recording', 'RecordingView', {
+          hadTranscription: false
+        });
       }
     } catch (error: any) {
       loggerService.error('Failed to stop recording', 'RecordingView', error as Error, {
@@ -244,13 +248,28 @@ export default function RecordingView() {
       
       if (speechService.isAvailable) {
         try {
-          const transcript = await speechService.startLiveRecognition();
-          setCorrectionText(transcript);
-        } catch (error) {
-          console.error('Speech recognition error:', error);
+          // Start recognition with real-time updates for correction
+          const recognitionPromise = speechService.startLiveRecognition((interimText) => {
+            // Update correction text in real-time
+            setCorrectionText(interimText);
+          });
+          
+          // Wait for final result
+          const finalTranscript = await recognitionPromise;
+          if (finalTranscript) {
+            setCorrectionText(finalTranscript);
+          }
+        } catch (error: any) {
+          loggerService.error('Speech recognition error in voice correction', 'RecordingView', error as Error);
+          // Don't show error for "aborted" - it's handled gracefully
+          if (!error.message.includes('aborted')) {
+            setAlertMessage(`Speech recognition error: ${error.message}`);
+            setShowAlert(true);
+          }
         }
       }
     } catch (error: any) {
+      loggerService.error('Failed to start recording for voice correction', 'RecordingView', error as Error);
       setAlertMessage(`Failed to start recording: ${error.message}`);
       setShowAlert(true);
       setIsVoiceCorrectionMode(false);
