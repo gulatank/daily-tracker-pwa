@@ -294,142 +294,151 @@ export default function RecordingView() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4 pb-20">
-      <h1 className="text-2xl font-bold mb-6">Voice Tracker</h1>
+    <div className="min-h-screen pb-24 animate-fade-in">
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8 animate-slide-up">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Voice Tracker</h1>
+          <p className="text-gray-600 text-lg">Record your meals and workouts</p>
+        </div>
 
-      {/* Transcription display */}
-      <div className="mb-6">
-        {isEditingTranscription ? (
-          <textarea
-            value={transcriptionText}
-            onChange={(e) => setTranscriptionText(e.target.value)}
-            className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder="Edit transcription..."
-            autoFocus
-          />
-        ) : (
-          <div className="w-full min-h-[150px] p-4 bg-gray-100 rounded-lg border border-gray-200">
-            <p className={transcriptionText ? 'text-gray-900' : 'text-gray-400'}>
-              {transcriptionText || 'Your transcription will appear here...'}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Record button */}
-      <div className="flex flex-col items-center mb-6">
-        <button
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={!hasPermission || isProcessing}
-          className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-4xl transition-all ${
-            isRecording
-              ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-              : 'bg-blue-500 hover:bg-blue-600'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
-        >
-          {isRecording ? '⏹' : '🎤'}
-        </button>
-        <p className="mt-4 text-gray-600 font-medium">
-          {isRecording ? 'Recording...' : isProcessing ? 'Processing...' : 'Tap to Record'}
-        </p>
-        {!hasPermission && (
-          <p className="mt-2 text-sm text-red-600">Microphone permission required</p>
-        )}
-      </div>
-
-      {/* Voice correction mode */}
-      {isVoiceCorrectionMode && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="font-medium text-gray-900 mb-2">Recording quantity/unit correction...</p>
-          {correctionText && (
-            <div className="mb-3 p-3 bg-white rounded border border-gray-200">
-              <p>{correctionText}</p>
+        {/* Transcription display */}
+        <div className="card mb-6 animate-slide-up">
+          {isEditingTranscription ? (
+            <textarea
+              value={transcriptionText}
+              onChange={(e) => setTranscriptionText(e.target.value)}
+              className="input-field h-40 resize-none"
+              placeholder="Edit transcription..."
+              autoFocus
+            />
+          ) : (
+            <div className="min-h-[150px] p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-200">
+              <p className={`text-lg leading-relaxed ${transcriptionText ? 'text-gray-900' : 'text-gray-400 italic'}`}>
+                {transcriptionText || 'Your transcription will appear here...'}
+              </p>
             </div>
           )}
-          <div className="flex gap-2">
-            <button
-              onClick={applyVoiceCorrection}
-              disabled={!correctionText.trim()}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Apply Correction
-            </button>
-            <button
-              onClick={cancelVoiceCorrection}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
-      )}
 
-      {/* Edit/Re-record buttons */}
-      {transcriptionText && !isProcessing && !isVoiceCorrectionMode && (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsEditingTranscription(!isEditingTranscription)}
-              className="flex-1 bg-blue-100 text-blue-700 py-2 px-4 rounded-lg hover:bg-blue-200 font-medium"
-            >
-              {isEditingTranscription ? '✓ Done' : '✏️ Edit'}
-            </button>
-            <button
-              onClick={() => {
-                setTranscriptionText('');
-                setIsEditingTranscription(false);
-              }}
-              className="flex-1 bg-orange-100 text-orange-700 py-2 px-4 rounded-lg hover:bg-orange-200 font-medium"
-            >
-              🔄 Re-record
-            </button>
-          </div>
+        {/* Record button */}
+        <div className="flex flex-col items-center mb-8 animate-slide-up">
           <button
-            onClick={processTranscription}
-            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 font-medium"
+            onClick={isRecording ? stopRecording : startRecording}
+            disabled={!hasPermission || isProcessing}
+            className={`w-32 h-32 rounded-full flex items-center justify-center text-white text-5xl transition-all transform ${
+              isRecording
+                ? 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 animate-pulse-glow shadow-2xl scale-110'
+                : 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-xl hover:scale-105'
+            } disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+            aria-label={isRecording ? 'Stop recording' : 'Start recording'}
           >
-            Save Entry
+            {isRecording ? '⏹' : '🎤'}
           </button>
+          <p className="mt-6 text-gray-700 font-semibold text-lg">
+            {isRecording ? 'Recording...' : isProcessing ? 'Processing...' : 'Tap to Record'}
+          </p>
+          {!hasPermission && (
+            <p className="mt-2 text-sm text-red-600 font-medium">Microphone permission required</p>
+          )}
         </div>
-      )}
 
-      {/* Alert */}
-      {showAlert && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 max-w-md">
-            <h3 className="text-lg font-bold mb-2">Alert</h3>
-            <p className="text-gray-700 mb-4">{alertMessage}</p>
+        {/* Voice correction mode */}
+        {isVoiceCorrectionMode && (
+          <div className="card mb-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200 animate-slide-up">
+            <p className="font-semibold text-gray-900 mb-3 text-lg">Recording correction...</p>
+            {correctionText && (
+              <div className="mb-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                <p className="text-gray-900">{correctionText}</p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={applyVoiceCorrection}
+                disabled={!correctionText.trim()}
+                className="btn-primary flex-1"
+              >
+                Apply Correction
+              </button>
+              <button
+                onClick={cancelVoiceCorrection}
+                className="btn-secondary px-6"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit/Re-record buttons */}
+        {transcriptionText && !isProcessing && !isVoiceCorrectionMode && (
+          <div className="space-y-4 animate-slide-up">
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsEditingTranscription(!isEditingTranscription)}
+                className="btn-secondary flex-1"
+              >
+                {isEditingTranscription ? '✓ Done' : '✏️ Edit'}
+              </button>
+              <button
+                onClick={() => {
+                  setTranscriptionText('');
+                  setIsEditingTranscription(false);
+                }}
+                className="btn-secondary flex-1 bg-orange-100 text-orange-700 hover:bg-orange-200"
+              >
+                🔄 Re-record
+              </button>
+            </div>
             <button
-              onClick={() => setShowAlert(false)}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+              onClick={processTranscription}
+              className="btn-success w-full"
             >
-              OK
+              Save Entry
             </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Preview Sheet */}
-      {showingPreview && (
-        <PreviewSheet
-          foodItems={previewFoodItems}
-          workouts={previewWorkouts}
-          duplicateWarnings={duplicateWarnings}
-          itemsToDelete={itemsToDelete}
-          onItemsToDeleteChange={setItemsToDelete}
-          onSave={saveFromPreview}
-          onCancel={() => {
-            setShowingPreview(false);
-            setItemsToDelete(new Set());
-          }}
-          onVoiceCorrection={startVoiceCorrection}
-          transcription={transcriptionText}
-          onEditTranscription={() => {
-            setShowingPreview(false);
-            setIsEditingTranscription(true);
-          }}
-        />
-      )}
+        {/* Alert */}
+        {showAlert && (
+          <div className="modal-backdrop animate-fade-in">
+            <div className="modal-content max-w-md">
+              <div className="p-6">
+                <h3 className="text-xl font-bold mb-3">Alert</h3>
+                <p className="text-gray-700 mb-6 leading-relaxed">{alertMessage}</p>
+                <button
+                  onClick={() => setShowAlert(false)}
+                  className="btn-primary w-full"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Preview Sheet */}
+        {showingPreview && (
+          <PreviewSheet
+            foodItems={previewFoodItems}
+            workouts={previewWorkouts}
+            duplicateWarnings={duplicateWarnings}
+            itemsToDelete={itemsToDelete}
+            onItemsToDeleteChange={setItemsToDelete}
+            onSave={saveFromPreview}
+            onCancel={() => {
+              setShowingPreview(false);
+              setItemsToDelete(new Set());
+            }}
+            onVoiceCorrection={startVoiceCorrection}
+            transcription={transcriptionText}
+            onEditTranscription={() => {
+              setShowingPreview(false);
+              setIsEditingTranscription(true);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

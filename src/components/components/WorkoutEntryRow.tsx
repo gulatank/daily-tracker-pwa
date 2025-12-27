@@ -9,19 +9,19 @@ export default function WorkoutEntryRow({ entry }: WorkoutEntryRowProps) {
   const timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <h3 className="font-semibold text-lg text-gray-900 capitalize">
+    <div>
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <h3 className="font-bold text-xl text-gray-900 capitalize mb-1">
             {entry.activityType}
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 font-medium">
             {Math.round(entry.duration)} min • {entry.intensity} intensity • {timeString}
           </p>
         </div>
-        <div className="text-right">
-          <p className="font-bold text-orange-600">{Math.round(entry.caloriesBurnt)} kcal</p>
-          <p className="text-xs text-gray-500">burnt</p>
+        <div className="text-right ml-4">
+          <p className="font-bold text-2xl text-orange-600">{Math.round(entry.caloriesBurnt)}</p>
+          <p className="text-xs text-gray-500 font-medium">kcal burnt</p>
         </div>
       </div>
     </div>
