@@ -16,6 +16,7 @@ export default function SettingsView() {
   const [showBMRInfo, setShowBMRInfo] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('userAge', profile.age.toString());
@@ -29,8 +30,17 @@ export default function SettingsView() {
   const tdee = UserProfileService.calculateTDEE(profile);
 
   const loadLogs = async () => {
-    const allLogs = await loggerService.getAllLogs();
-    setLogs(allLogs);
+    setLoadingLogs(true);
+    try {
+      const allLogs = await loggerService.getAllLogs();
+      console.log('Loaded logs:', allLogs.length); // Debug log
+      setLogs(allLogs);
+    } catch (error) {
+      console.error('Error loading logs:', error);
+      setLogs([]);
+    } finally {
+      setLoadingLogs(false);
+    }
   };
 
   return (
@@ -140,21 +150,22 @@ export default function SettingsView() {
           <div className="card animate-slide-up">
             <button
               onClick={async () => {
-                setShowLogs(!showLogs);
                 if (!showLogs) {
                   await loadLogs();
                 }
+                setShowLogs(!showLogs);
               }}
               className="btn-secondary w-full"
+              disabled={loadingLogs}
             >
-              {showLogs ? 'Hide' : 'Show'} Debug Logs
+              {loadingLogs ? 'Loading...' : showLogs ? 'Hide' : 'Show'} Debug Logs
             </button>
           </div>
 
           {showLogs && (
             <div className="card animate-slide-up">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Debug Logs</h2>
+                <h2 className="text-xl font-bold">Debug Logs ({logs.length})</h2>
                 <div className="flex gap-2">
                   <button
                     onClick={async () => {
@@ -185,11 +196,14 @@ export default function SettingsView() {
                   </button>
                 </div>
               </div>
-              <div className="max-h-96 overflow-y-auto space-y-2">
-                {logs.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No logs available</p>
-                ) : (
-                  logs.map((log, index) => (
+              {loadingLogs ? (
+                <p className="text-gray-500 text-center py-8">Loading logs...</p>
+              ) : (
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {logs.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No logs available</p>
+                  ) : (
+                    logs.map((log, index) => (
                     <div
                       key={index}
                       className={`p-3 rounded-lg text-sm ${
@@ -219,9 +233,10 @@ export default function SettingsView() {
                         </pre>
                       )}
                     </div>
-                  ))
-                )}
-              </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
 

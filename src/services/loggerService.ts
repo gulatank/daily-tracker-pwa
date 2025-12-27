@@ -41,33 +41,93 @@ class LoggerService {
   }
 
   private async saveToDB(entry: LogEntry) {
-    try {
+    return new Promise<void>((resolve) => {
       const request = indexedDB.open(this.dbName, 1);
+      
+      request.onerror = () => {
+        console.error('Failed to open database for saving log');
+        resolve(); // Don't reject, just fail silently
+      };
+      
       request.onsuccess = () => {
         const db = request.result;
+        
+        // Check if store exists, if not, we need to upgrade
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          // Store doesn't exist, need to upgrade
+          db.close();
+          const upgradeRequest = indexedDB.open(this.dbName, 2);
+          upgradeRequest.onupgradeneeded = (event) => {
+            const upgradeDb = (event.target as IDBOpenDBRequest).result;
+            if (!upgradeDb.objectStoreNames.contains(this.storeName)) {
+              const store = upgradeDb.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+              store.createIndex('timestamp', 'timestamp', { unique: false });
+              store.createIndex('level', 'level', { unique: false });
+            }
+          };
+          upgradeRequest.onsuccess = () => {
+            const upgradeDb = upgradeRequest.result;
+            const transaction = upgradeDb.transaction([this.storeName], 'readwrite');
+            const store = transaction.objectStore(this.storeName);
+            // Convert Date to ISO string for storage
+            const entryToSave = {
+              ...entry,
+              timestamp: entry.timestamp.toISOString()
+            };
+            store.add(entryToSave);
+            resolve();
+          };
+          upgradeRequest.onerror = () => resolve();
+          return;
+        }
+        
         const transaction = db.transaction([this.storeName], 'readwrite');
         const store = transaction.objectStore(this.storeName);
-        store.add(entry);
-
-        // Clean up old logs (keep only last maxLogs)
-        const index = store.index('timestamp');
-        const countRequest = store.count();
-        countRequest.onsuccess = () => {
-          if (countRequest.result > this.maxLogs) {
-            const cursorRequest = index.openCursor(null, 'next');
-            cursorRequest.onsuccess = (event) => {
-              const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-              if (cursor && countRequest.result - this.maxLogs > 0) {
-                cursor.delete();
-                cursor.continue();
-              }
-            };
-          }
+        
+        // Convert Date to ISO string for storage
+        const entryToSave = {
+          ...entry,
+          timestamp: entry.timestamp.toISOString()
         };
+        
+        const addRequest = store.add(entryToSave);
+        addRequest.onsuccess = () => {
+          // Clean up old logs (keep only last maxLogs)
+          const countRequest = store.count();
+          countRequest.onsuccess = () => {
+            if (countRequest.result > this.maxLogs) {
+              const index = store.index('timestamp');
+              const cursorRequest = index.openCursor(null, 'next');
+              let deletedCount = 0;
+              cursorRequest.onsuccess = (event) => {
+                const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+                if (cursor && deletedCount < (countRequest.result - this.maxLogs)) {
+                  cursor.delete();
+                  deletedCount++;
+                  cursor.continue();
+                } else {
+                  resolve();
+                }
+              };
+              cursorRequest.onerror = () => resolve();
+            } else {
+              resolve();
+            }
+          };
+          countRequest.onerror = () => resolve();
+        };
+        addRequest.onerror = () => resolve();
       };
-    } catch (error) {
-      console.error('Failed to save log to database:', error);
-    }
+      
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          const store = db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          store.createIndex('level', 'level', { unique: false });
+        }
+      };
+    });
   }
 
   private log(level: LogLevel, message: string, context?: string, error?: Error, metadata?: Record<string, any>) {
@@ -123,34 +183,44 @@ class LoggerService {
   async getAllLogs(): Promise<LogEntry[]> {
     return new Promise((resolve) => {
       const request = indexedDB.open(this.dbName, 1);
+      
+      request.onerror = () => {
+        console.error('Failed to open database for reading logs');
+        resolve(this.logs); // Return in-memory logs as fallback
+      };
+      
       request.onsuccess = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains(this.storeName)) {
+          console.log('Log store does not exist yet');
           resolve(this.logs);
           return;
         }
+        
         const transaction = db.transaction([this.storeName], 'readonly');
         const store = transaction.objectStore(this.storeName);
-        const index = store.index('timestamp');
-        const getAllRequest = index.getAll();
+        const getAllRequest = store.getAll();
         
         getAllRequest.onsuccess = () => {
-          const logs = getAllRequest.result as LogEntry[];
+          const logs = getAllRequest.result as any[];
           // Convert timestamp strings back to Date objects
           const processedLogs = logs.map(log => ({
             ...log,
-            timestamp: log.timestamp instanceof Date ? log.timestamp : new Date(log.timestamp as any)
+            timestamp: typeof log.timestamp === 'string' ? new Date(log.timestamp) : (log.timestamp instanceof Date ? log.timestamp : new Date())
           }));
-          resolve(processedLogs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()));
+          const sortedLogs = processedLogs.sort((a, b) => {
+            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+            return timeB - timeA;
+          });
+          console.log(`Loaded ${sortedLogs.length} logs from database`);
+          resolve(sortedLogs);
         };
         
         getAllRequest.onerror = () => {
+          console.error('Failed to get logs from database');
           resolve(this.logs);
         };
-      };
-      
-      request.onerror = () => {
-        resolve(this.logs);
       };
     });
   }
