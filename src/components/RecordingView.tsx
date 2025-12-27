@@ -30,6 +30,7 @@ export default function RecordingView() {
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const [alertMessage, setAlertMessage] = useState('');
   const [showAlert, setShowAlert] = useState(false);
+  const [recognitionPromise, setRecognitionPromise] = useState<Promise<string> | null>(null);
 
   const userWeight = parseFloat(localStorage.getItem('userWeight') || '70.0');
   const foodParser = new FoodParser();
@@ -50,32 +51,32 @@ export default function RecordingView() {
       setIsRecording(true);
       setTranscriptionText('');
       
-      // Start speech recognition with real-time updates
+      // Start speech recognition with real-time updates (don't wait for it to complete)
       if (speechService.isAvailable) {
-        try {
-          // Start recognition with callback for real-time transcription
-          const recognitionPromise = speechService.startLiveRecognition((interimText) => {
-            // Update transcription in real-time as user speaks
-            setTranscriptionText(interimText);
-          });
-          
-          // Wait for final result
-          const finalTranscript = await recognitionPromise;
-          // Update with final transcript (in case callback missed it)
-          if (finalTranscript) {
-            setTranscriptionText(finalTranscript);
-          }
-        } catch (error: any) {
+        // Start recognition in background with callback for real-time transcription
+        const promise = speechService.startLiveRecognition((interimText) => {
+          // Update transcription in real-time as user speaks
+          setTranscriptionText(interimText);
+        });
+        
+        // Store the promise so we can wait for it when stopping
+        setRecognitionPromise(promise);
+        
+        // Handle errors in background (don't block recording)
+        promise.catch((error: any) => {
           loggerService.error('Speech recognition failed during recording', 'RecordingView', error as Error, {
             hasPermission,
             isRecording: true
           });
-          // Don't show error for "aborted" - it's handled gracefully
-          if (!error.message.includes('aborted')) {
+          // Only show error for critical issues, not "aborted" or "no-speech"
+          if (error.message && 
+              !error.message.includes('aborted') && 
+              !error.message.includes('no-speech') &&
+              !error.message.includes('No speech detected')) {
             setAlertMessage(`Speech recognition error: ${error.message}`);
             setShowAlert(true);
           }
-        }
+        });
       }
     } catch (error: any) {
       loggerService.error('Failed to start recording', 'RecordingView', error as Error, {
@@ -91,12 +92,31 @@ export default function RecordingView() {
     try {
       await recordingService.stopRecording();
       setIsRecording(false);
+      
+      // Stop recognition and wait for final result
       speechService.stopRecognition();
       
-      // Transcription should already be populated from real-time updates
-      // If not, it means recognition didn't work - user can edit manually
+      // Wait for recognition to finish and get final transcript
+      if (recognitionPromise) {
+        try {
+          const finalTranscript = await recognitionPromise;
+          // Update with final transcript if we have one and current text is empty or different
+          if (finalTranscript && finalTranscript.trim()) {
+            setTranscriptionText(finalTranscript.trim());
+          }
+        } catch (error: any) {
+          // Recognition errors are already handled, just log
+          loggerService.debug('Recognition promise resolved with error (expected)', 'RecordingView', {
+            error: error.message
+          });
+        }
+        setRecognitionPromise(null);
+      }
+      
+      // If we still don't have transcription, that's okay - user can edit manually
+      // Don't show an error, just log it
       if (!transcriptionText.trim()) {
-        loggerService.info('No transcription available after recording', 'RecordingView', {
+        loggerService.info('No transcription available after recording - user can edit manually', 'RecordingView', {
           hadTranscription: false
         });
       }
