@@ -6,6 +6,7 @@ import { WorkoutParser } from '../services/workoutParser';
 import { foodDatabase } from '../services/foodDatabase';
 import { workoutCalculator } from '../services/workoutCalculator';
 import { storageService } from '../services/storageService';
+import { loggerService } from '../services/loggerService';
 import type { DuplicateWarning } from '../services/storageService';
 import type { ParsedFoodItem } from '../models/FoodEntry';
 import type { ParsedWorkout } from '../models/WorkoutEntry';
@@ -54,11 +55,20 @@ export default function RecordingView() {
         try {
           const transcript = await speechService.startLiveRecognition();
           setTranscriptionText(transcript);
-        } catch (error) {
-          console.error('Speech recognition error:', error);
+        } catch (error: any) {
+          loggerService.error('Speech recognition failed during recording', 'RecordingView', error as Error, {
+            hasPermission,
+            isRecording: true
+          });
+          setAlertMessage(`Speech recognition error: ${error.message}`);
+          setShowAlert(true);
         }
       }
     } catch (error: any) {
+      loggerService.error('Failed to start recording', 'RecordingView', error as Error, {
+        hasPermission,
+        isProcessing
+      });
       setAlertMessage(`Failed to start recording: ${error.message}`);
       setShowAlert(true);
     }
@@ -76,8 +86,10 @@ export default function RecordingView() {
         try {
           const transcript = await speechService.startLiveRecognition();
           setTranscriptionText(transcript);
-        } catch (error) {
-          console.error('Transcription error:', error);
+        } catch (error: any) {
+          loggerService.error('Transcription error after stopping recording', 'RecordingView', error as Error, {
+            hadTranscription: !!transcriptionText
+          });
           setAlertMessage('Transcription failed. You can edit the text manually.');
           setShowAlert(true);
         } finally {
@@ -85,6 +97,10 @@ export default function RecordingView() {
         }
       }
     } catch (error: any) {
+      loggerService.error('Failed to stop recording', 'RecordingView', error as Error, {
+        isRecording,
+        hasTranscription: !!transcriptionText
+      });
       setIsRecording(false);
       setAlertMessage(`Failed to stop recording: ${error.message}`);
       setShowAlert(true);

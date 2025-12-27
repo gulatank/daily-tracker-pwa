@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { UserProfile } from '../models/UserProfile';
 import { UserProfileService } from '../models/UserProfile';
+import { loggerService } from '../services/loggerService';
+import type { LogEntry } from '../services/loggerService';
 
 export default function SettingsView() {
   const [profile, setProfile] = useState<UserProfile>({
@@ -12,6 +14,8 @@ export default function SettingsView() {
   });
   
   const [showBMRInfo, setShowBMRInfo] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('userAge', profile.age.toString());
@@ -23,6 +27,11 @@ export default function SettingsView() {
 
   const bmr = UserProfileService.calculateBMR(profile);
   const tdee = UserProfileService.calculateTDEE(profile);
+
+  const loadLogs = async () => {
+    const allLogs = await loggerService.getAllLogs();
+    setLogs(allLogs);
+  };
 
   return (
     <div className="min-h-screen pb-24 animate-fade-in">
@@ -126,6 +135,95 @@ export default function SettingsView() {
               ℹ️ What is BMR/TDEE?
             </button>
           </div>
+
+          {/* Debug Logs */}
+          <div className="card animate-slide-up">
+            <button
+              onClick={async () => {
+                setShowLogs(!showLogs);
+                if (!showLogs) {
+                  await loadLogs();
+                }
+              }}
+              className="btn-secondary w-full"
+            >
+              {showLogs ? 'Hide' : 'Show'} Debug Logs
+            </button>
+          </div>
+
+          {showLogs && (
+            <div className="card animate-slide-up">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Debug Logs</h2>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      await loggerService.downloadLogs();
+                      loggerService.info('Logs downloaded', 'SettingsView');
+                    }}
+                    className="btn-secondary"
+                  >
+                    Download Logs
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (confirm('Clear all logs? This cannot be undone.')) {
+                        await loggerService.clearLogs();
+                        await loadLogs();
+                        loggerService.info('Logs cleared', 'SettingsView');
+                      }
+                    }}
+                    className="btn-danger"
+                  >
+                    Clear Logs
+                  </button>
+                  <button
+                    onClick={() => setShowLogs(false)}
+                    className="btn-secondary"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+              <div className="max-h-96 overflow-y-auto space-y-2">
+                {logs.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No logs available</p>
+                ) : (
+                  logs.map((log, index) => (
+                    <div
+                      key={index}
+                      className={`p-3 rounded-lg text-sm ${
+                        log.level === 'error' ? 'bg-red-50 border border-red-200' :
+                        log.level === 'warn' ? 'bg-yellow-50 border border-yellow-200' :
+                        'bg-gray-50 border border-gray-200'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-semibold text-xs">
+                          [{new Date(log.timestamp).toLocaleString()}] [{log.level.toUpperCase()}]
+                          {log.context && ` [${log.context}]`}
+                        </span>
+                      </div>
+                      <p className="text-gray-900 mb-1">{log.message}</p>
+                      {log.error && (
+                        <div className="text-xs text-red-700 mt-1">
+                          <p><strong>Error:</strong> {log.error.name}: {log.error.message}</p>
+                          {log.error.stack && (
+                            <pre className="mt-1 text-xs overflow-x-auto whitespace-pre-wrap">{log.error.stack}</pre>
+                          )}
+                        </div>
+                      )}
+                      {log.metadata && (
+                        <pre className="text-xs text-gray-600 mt-1 overflow-x-auto whitespace-pre-wrap">
+                          {JSON.stringify(log.metadata, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           {/* About */}
           <div className="card animate-slide-up">

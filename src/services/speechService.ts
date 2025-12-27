@@ -1,3 +1,5 @@
+import { loggerService } from './loggerService';
+
 export class SpeechService {
   private recognition: any = null;
   private isSupported = false;
@@ -13,6 +15,12 @@ export class SpeechService {
       this.recognition.interimResults = false;
       this.recognition.lang = 'en-US';
       this.isSupported = true;
+      loggerService.info('Speech recognition initialized', 'SpeechService', {
+        lang: this.recognition.lang,
+        continuous: this.recognition.continuous
+      });
+    } else {
+      loggerService.warn('Speech recognition not supported in this browser', 'SpeechService');
     }
   }
 
@@ -22,7 +30,9 @@ export class SpeechService {
 
   async transcribeAudioBlob(_audioBlob: Blob): Promise<string> {
     if (!this.isSupported) {
-      throw new Error('Speech recognition not supported in this browser');
+      const error = new Error('Speech recognition not supported in this browser');
+      loggerService.error('Speech recognition not supported', 'SpeechService', error);
+      throw error;
     }
 
     // Convert blob to audio URL and play it, then use live recognition
@@ -32,7 +42,9 @@ export class SpeechService {
     
     return new Promise((resolve, reject) => {
       if (!this.recognition) {
-        reject(new Error('Speech recognition not initialized'));
+        const error = new Error('Speech recognition not initialized');
+        loggerService.error('Speech recognition not initialized', 'SpeechService', error);
+        reject(error);
         return;
       }
 
@@ -43,18 +55,35 @@ export class SpeechService {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             finalTranscript += transcript;
+            loggerService.debug('Speech recognition result', 'SpeechService', {
+              transcript,
+              isFinal: event.results[i].isFinal
+            });
           }
         }
       };
 
       this.recognition.onerror = (event: any) => {
-        reject(new Error(`Speech recognition error: ${event.error}`));
+        const error = new Error(`Speech recognition error: ${event.error}`);
+        loggerService.error('Speech recognition error', 'SpeechService', error, {
+          errorType: event.error,
+          errorMessage: event.message
+        });
+        reject(error);
       };
 
       this.recognition.onend = () => {
+        loggerService.info('Speech recognition ended', 'SpeechService', {
+          finalTranscript: finalTranscript.trim(),
+          transcriptLength: finalTranscript.trim().length
+        });
         resolve(finalTranscript.trim());
       };
 
+      loggerService.info('Starting speech recognition (transcribeAudioBlob)', 'SpeechService', {
+        lang: this.recognition.lang,
+        continuous: this.recognition.continuous
+      });
       // Start recognition
       this.recognition.start();
     });
@@ -63,12 +92,16 @@ export class SpeechService {
   // Alternative: Use live recognition (user speaks directly)
   async startLiveRecognition(): Promise<string> {
     if (!this.isSupported) {
-      throw new Error('Speech recognition not supported in this browser');
+      const error = new Error('Speech recognition not supported in this browser');
+      loggerService.error('Speech recognition not supported', 'SpeechService', error);
+      throw error;
     }
 
     return new Promise((resolve, reject) => {
       if (!this.recognition) {
-        reject(new Error('Speech recognition not initialized'));
+        const error = new Error('Speech recognition not initialized');
+        loggerService.error('Speech recognition not initialized', 'SpeechService', error);
+        reject(error);
         return;
       }
 
@@ -79,24 +112,42 @@ export class SpeechService {
           const transcript = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
             finalTranscript += transcript;
+            loggerService.debug('Speech recognition result', 'SpeechService', {
+              transcript,
+              isFinal: event.results[i].isFinal
+            });
           }
         }
       };
 
       this.recognition.onerror = (event: any) => {
-        reject(new Error(`Speech recognition error: ${event.error}`));
+        const error = new Error(`Speech recognition error: ${event.error}`);
+        loggerService.error('Speech recognition error', 'SpeechService', error, {
+          errorType: event.error,
+          errorMessage: event.message
+        });
+        reject(error);
       };
 
       this.recognition.onend = () => {
+        loggerService.info('Speech recognition ended', 'SpeechService', {
+          finalTranscript: finalTranscript.trim(),
+          transcriptLength: finalTranscript.trim().length
+        });
         resolve(finalTranscript.trim());
       };
 
+      loggerService.info('Starting speech recognition', 'SpeechService', {
+        lang: this.recognition.lang,
+        continuous: this.recognition.continuous
+      });
       this.recognition.start();
     });
   }
 
   stopRecognition() {
     if (this.recognition) {
+      loggerService.info('Stopping speech recognition', 'SpeechService');
       this.recognition.stop();
     }
   }
